@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System;
 using YantraJS.ExpHelper;
 using YantraJS.Expressions;
-using YantraJS.Generator;
 using YantraJS.LinqExpressions;
 using YantraJS.Runtime;
 using YantraJS.Core.Clr;
