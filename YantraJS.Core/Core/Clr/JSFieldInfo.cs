@@ -37,7 +37,15 @@ namespace YantraJS.Core.Core.Clr
                         Expression.Field(
                             convertedThis, field));
                 var lambda = Expression.Lambda<JSFunctionDelegate>(name, body, args);
-                return lambda.Compile();
+                try
+                {
+                    return lambda.CompileAOT();
+                }
+                catch
+                {
+                    // Fall back to Reflection.Emit if AOT fails
+                    return lambda.Compile();
+                }
             }, name);
 
         }
@@ -65,7 +73,15 @@ namespace YantraJS.Core.Core.Clr
 
                 var body = assign;
                 var lambda = Expression.Lambda<JSFunctionDelegate>(name, body, args);
-                return lambda.Compile();
+                try
+                {
+                    return lambda.CompileAOT();
+                }
+                catch
+                {
+                    // Fall back to Reflection.Emit if AOT fails
+                    return lambda.Compile();
+                }
             }, name);
         }
     }

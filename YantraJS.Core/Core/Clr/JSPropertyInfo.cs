@@ -78,7 +78,15 @@ namespace YantraJS.Core.Core.Clr
             }
             Expression body = JSExceptionBuilder.Wrap(ClrProxyBuilder.Marshal(indexExpression));
             var lambda = Expression.Lambda<Func<object, uint, JSValue>>($"set {Property.Name}", body, @this, index);
-            return lambda.Compile();
+            try
+            {
+                return lambda.CompileAOT();
+            }
+            catch
+            {
+                // Fall back to Reflection.Emit if AOT fails
+                return lambda.Compile();
+            }
         }
 
         internal Func<object, uint, object, JSValue> GenerateIndexedSetter()
@@ -113,7 +121,15 @@ namespace YantraJS.Core.Core.Clr
                 JSExceptionBuilder.Wrap(
                     Expression.Assign(indexExpression, Expression.TypeAs(value, elementType)).ToJSValue()));
             var lambda = Expression.Lambda<Func<object, uint, object, JSValue>>("get " + Property.Name, body, @this, index, value);
-            return lambda.Compile();
+            try
+            {
+                return lambda.CompileAOT();
+            }
+            catch
+            {
+                // Fall back to Reflection.Emit if AOT fails
+                return lambda.Compile();
+            }
         }
 
     }
