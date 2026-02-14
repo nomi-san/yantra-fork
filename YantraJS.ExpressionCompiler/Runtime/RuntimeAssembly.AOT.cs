@@ -75,17 +75,8 @@ namespace YantraJS.Runtime
                 throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
             }
             
-            // Compile and execute
-            var compiledFunc = ((Expression<T>)linqExpr).Compile(preferInterpretation: true);
-            
-            // If T is a Func<TResult>, invoke it and return the result
-            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Func<>))
-            {
-                var result = (compiledFunc as Delegate)?.DynamicInvoke();
-                return result != null ? (T)result : default(T);
-            }
-            
-            return compiledFunc;
+            // Compile with interpretation for AOT compatibility
+            return ((Expression<T>)linqExpr).Compile(preferInterpretation: true);
         }
 
         /// <summary>

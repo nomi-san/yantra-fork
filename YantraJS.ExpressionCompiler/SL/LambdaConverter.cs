@@ -171,11 +171,9 @@ namespace YantraJS.SL
             
             if (node.Test is PropertyInfo prop)
             {
-                // Property test
+                // Property test - just access the property value
                 var propAccess = Expression.Property(target, prop);
-                condition = node.TestArguments != null && node.TestArguments.Any() 
-                    ? Expression.Call(propAccess, prop.GetMethod, node.TestArguments.Select(Visit))
-                    : propAccess;
+                condition = propAccess;
             }
             else if (node.Test is MethodInfo method)
             {
@@ -222,7 +220,7 @@ namespace YantraJS.SL
 
         protected override Expression VisitConvert(YConvertExpression convertExpression)
         {
-            return Expression.Convert(Visit(convertExpression), convertExpression.Type);
+            return Expression.Convert(Visit(convertExpression.Target), convertExpression.Type);
         }
 
         protected override Expression VisitDebugInfo(YDebugInfoExpression node)
@@ -327,8 +325,14 @@ namespace YantraJS.SL
                 switchCases.Add(Expression.SwitchCase(gotoExpr, Expression.Constant(i)));
             }
             
-            // Create the switch expression
-            return Expression.Switch(target, switchCases.ToArray());
+            // Add default case that throws for out-of-bounds values
+            var defaultCase = Expression.Throw(
+                Expression.New(
+                    typeof(ArgumentOutOfRangeException).GetConstructor(new[] { typeof(string) }),
+                    Expression.Constant("JumpSwitch target index out of bounds")));
+            
+            // Create the switch expression with default case
+            return Expression.Switch(target, defaultCase, switchCases.ToArray());
         }
 
         protected override Expression VisitLabel(YLabelExpression yLabelExpression)
