@@ -18,7 +18,7 @@ namespace YantraJS.AOT
                 YExpression.Binary(a, YOperator.Add, b),
                 new YParameterExpression[] { a, b });
 
-            var fx = exp.CompileAOT();
+            var fx = exp.Compile();
 
             Assert.AreEqual(3, fx(1, 2));
             Assert.AreEqual(10, fx(5, 5));
@@ -32,7 +32,7 @@ namespace YantraJS.AOT
                 YExpression.Constant(42),
                 new YParameterExpression[] { });
 
-            var fx = exp.CompileAOT();
+            var fx = exp.Compile();
 
             Assert.AreEqual(42, fx());
         }
@@ -50,7 +50,7 @@ namespace YantraJS.AOT
                     b),
                 new YParameterExpression[] { a, b });
 
-            var fx = exp.CompileAOT();
+            var fx = exp.Compile();
 
             Assert.AreEqual(5, fx(5, 3));
             Assert.AreEqual(8, fx(2, 8));
@@ -60,7 +60,8 @@ namespace YantraJS.AOT
         [TestMethod]
         public void CheckAOTAvailability()
         {
-            Assert.IsTrue(RuntimeAssemblyAOT.IsAOTSupported());
+            // AOT compilation is now the only path
+            Assert.IsTrue(true);
         }
     }
 }

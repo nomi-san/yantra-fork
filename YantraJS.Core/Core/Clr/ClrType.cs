@@ -396,7 +396,7 @@ namespace YantraJS.Core.Clr
                 Expression.Lambda<JSFunctionDelegate>(name,
                     ClrProxyBuilder.From(Expression.New(c,pe)),
                     pe
-                ).CompileAOT();
+                ).Compile();
             return new JSFunction(newDelegate, name);
         }
 

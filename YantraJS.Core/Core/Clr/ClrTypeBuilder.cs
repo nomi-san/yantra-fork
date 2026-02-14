@@ -35,7 +35,7 @@ internal static class ClrTypeBuilder
             ? Expression.Box(body)
             : body;
         var lambda = Expression.Lambda<ClrProxyFactory>(name, body, args);
-        return lambda.CompileAOT();
+        return lambda.Compile();
     }
 
     internal static JSFunctionDelegate CompileToJSFunctionDelegate(this MethodInfo m, string name = null)
@@ -87,7 +87,7 @@ internal static class ClrTypeBuilder
         }
 
         var lambda = Expression.Lambda<JSFunctionDelegate>(name, body, args);
-        return lambda.CompileAOT();
+        return lambda.Compile();
     }
 
     private static List<Expression> GetArgumentsExpression(this MethodBase m, Expression args)

@@ -23,7 +23,7 @@ namespace YantraJS.AOT
                     b),
                 new YParameterExpression[] { a, b });
 
-            var fx = exp.CompileAOT();
+            var fx = exp.Compile();
 
             Assert.AreEqual(5, fx(5, 3));
             Assert.AreEqual(8, fx(2, 8));
@@ -47,7 +47,7 @@ namespace YantraJS.AOT
                 conditional,
                 new YParameterExpression[] { a, b });
 
-            var fx = exp.CompileAOT();
+            var fx = exp.Compile();
 
             Assert.AreEqual(10, fx(10, 5));
             Assert.AreEqual(3, fx(2, 3));
