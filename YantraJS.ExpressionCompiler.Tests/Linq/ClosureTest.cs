@@ -33,7 +33,7 @@ namespace YantraJS.Linq
                     a
                 );
 
-            var fx1 = lamba.CompileInAssembly();
+            var fx1 = lamba.Compile();
 
             var fx2 = fx1(1);
 
@@ -79,7 +79,7 @@ namespace YantraJS.Linq
                 )
                 , a);
 
-            Func<int, Func<int, int>> fx = a1.CompileInAssembly();
+            Func<int, Func<int, int>> fx = a1.Compile();
 
             var f1 = fx(1);
 
