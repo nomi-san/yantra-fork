@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using YantraJS.Core;
 using YantraJS.Expressions;
@@ -11,6 +12,16 @@ namespace YantraJS.SL
     public class LambdaConverter : YExpressionVisitor<Expression>
     {
         private Dictionary<YParameterExpression, ParameterExpression> cache = new Dictionary<YParameterExpression, ParameterExpression>();
+        private Dictionary<YLabelTarget, LabelTarget> labelCache = new Dictionary<YLabelTarget, LabelTarget>();
+
+        private LabelTarget GetOrCreateLabel(YLabelTarget yLabel)
+        {
+            if (labelCache.TryGetValue(yLabel, out var label))
+                return label;
+            label = Expression.Label(yLabel.LabelType, yLabel.Name);
+            labelCache[yLabel] = label;
+            return label;
+        }
 
         public (IFastEnumerable<ParameterExpression> pe, IDisposable disposable) Register(IFastEnumerable<YParameterExpression> plist)
         {
@@ -44,7 +55,11 @@ namespace YantraJS.SL
 
         protected override Expression VisitAddressOf(YAddressOfExpression node)
         {
-            throw new NotImplementedException();
+            // AddressOf is not directly supported in LINQ Expressions
+            // This is typically used for ref parameters
+            // For AOT compatibility, we'll just visit the target
+            // The actual ref behavior should be handled at the parameter level
+            return Visit(node.Target);
         }
 
         protected override Expression VisitArrayIndex(YArrayIndexExpression yArrayIndexExpression)
@@ -123,7 +138,7 @@ namespace YantraJS.SL
 
         protected override Expression VisitBooleanConstant(YBooleanConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(bool));
         }
 
         protected override Expression VisitBox(YBoxExpression node)
@@ -133,7 +148,7 @@ namespace YantraJS.SL
 
         protected override Expression VisitByteConstant(YByteConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(byte));
         }
 
         protected override Expression VisitCall(YCallExpression yCallExpression)
@@ -148,7 +163,48 @@ namespace YantraJS.SL
 
         protected override Expression VisitCoalesceCall(YCoalesceCallExpression node)
         {
-            throw new NotImplementedException();
+            // CoalesceCall: target?.test() ? true() : false()
+            // Expand to: (target != null && target.test()) ? target.true() : target.false()
+            
+            var target = Visit(node.Target);
+            Expression condition;
+            
+            if (node.Test is PropertyInfo prop)
+            {
+                // Property test
+                var propAccess = Expression.Property(target, prop);
+                condition = node.TestArguments != null && node.TestArguments.Any() 
+                    ? Expression.Call(propAccess, prop.GetMethod, node.TestArguments.Select(Visit))
+                    : propAccess;
+            }
+            else if (node.Test is MethodInfo method)
+            {
+                // Method test
+                condition = Expression.Call(target, method, node.TestArguments?.Select(Visit) ?? Enumerable.Empty<Expression>());
+            }
+            else
+            {
+                throw new NotSupportedException($"Unsupported test member type: {node.Test?.GetType()}");
+            }
+            
+            // Add null check for target if it's a reference type
+            if (!target.Type.IsValueType)
+            {
+                condition = Expression.AndAlso(
+                    Expression.NotEqual(target, Expression.Constant(null, target.Type)),
+                    condition);
+            }
+            
+            // Build true and false branches
+            Expression trueExpr = node.True != null 
+                ? Expression.Call(target, node.True, node.TrueArguments?.Select(Visit) ?? Enumerable.Empty<Expression>())
+                : Expression.Constant(null, node.Type);
+                
+            Expression falseExpr = node.False != null
+                ? Expression.Call(target, node.False, node.FalseArguments?.Select(Visit) ?? Enumerable.Empty<Expression>())
+                : Expression.Constant(null, node.Type);
+            
+            return Expression.Condition(condition, trueExpr, falseExpr);
         }
 
         protected override Expression VisitConditional(YConditionalExpression yConditionalExpression)
@@ -176,12 +232,24 @@ namespace YantraJS.SL
 
         protected override Expression VisitDelegate(YDelegateExpression yDelegateExpression)
         {
-            throw new NotImplementedException();
+            // Create a delegate from a method
+            // This is typically Expression.Call for static methods or instance methods
+            if (yDelegateExpression.Method.IsStatic)
+            {
+                return Expression.Constant(
+                    System.Delegate.CreateDelegate(yDelegateExpression.Type, yDelegateExpression.Method));
+            }
+            else
+            {
+                // For instance methods, we need a target object
+                // This is a limitation - we'll throw for now as we need context
+                throw new NotSupportedException("Instance method delegates require a target object");
+            }
         }
 
         protected override Expression VisitDoubleConstant(YDoubleConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(double));
         }
 
         protected override Expression VisitEmpty(YEmptyExpression exp)
@@ -196,97 +264,187 @@ namespace YantraJS.SL
 
         protected override Expression VisitFloatConstant(YFloatConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(float));
         }
 
         protected override Expression VisitGoto(YGoToExpression yGoToExpression)
         {
-            throw new NotImplementedException();
+            var label = GetOrCreateLabel(yGoToExpression.Target);
+            if (yGoToExpression.Default != null)
+            {
+                return Expression.Goto(label, Visit(yGoToExpression.Default));
+            }
+            return Expression.Goto(label);
         }
 
         protected override Expression VisitILOffset(YILOffsetExpression node)
         {
-            throw new NotImplementedException();
+            // IL Offset is debug-only information, not needed for AOT
+            // Return an empty expression
+            return Expression.Empty();
         }
 
         protected override Expression VisitIndex(YIndexExpression yIndexExpression)
         {
-            throw new NotImplementedException();
+            var target = Visit(yIndexExpression.Target);
+            return Expression.Property(target, yIndexExpression.Property, yIndexExpression.Arguments.Select(Visit));
         }
 
         protected override Expression VisitInt32Constant(YInt32ConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(int));
         }
 
         protected override Expression VisitInt64Constant(YInt64ConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(long));
         }
 
         protected override Expression VisitInvoke(YInvokeExpression invokeExpression)
         {
-            throw new NotImplementedException();
+            return Expression.Invoke(Visit(invokeExpression.Target), invokeExpression.Arguments.Select(Visit));
         }
 
         protected override Expression VisitJumpSwitch(YJumpSwitchExpression node)
         {
-            throw new NotImplementedException();
+            // JumpSwitch is a computed goto with jump table
+            // Convert to a switch expression with goto statements
+            var target = Visit(node.Target);
+            
+            // Create labels for each case
+            var caseLabels = new List<LabelTarget>();
+            var en = node.Cases.GetFastEnumerator();
+            while (en.MoveNext(out var caseLabel))
+            {
+                caseLabels.Add(GetOrCreateLabel(caseLabel));
+            }
+            
+            // Build switch cases - each case just jumps to its label
+            var switchCases = new List<SwitchCase>();
+            for (int i = 0; i < caseLabels.Count; i++)
+            {
+                var gotoExpr = Expression.Goto(caseLabels[i]);
+                switchCases.Add(Expression.SwitchCase(gotoExpr, Expression.Constant(i)));
+            }
+            
+            // Create the switch expression
+            return Expression.Switch(target, switchCases.ToArray());
         }
 
         protected override Expression VisitLabel(YLabelExpression yLabelExpression)
         {
-            throw new NotImplementedException();
+            var label = GetOrCreateLabel(yLabelExpression.Target);
+            if (yLabelExpression.Default != null)
+            {
+                return Expression.Label(label, Visit(yLabelExpression.Default));
+            }
+            return Expression.Label(label);
         }
 
         protected override Expression VisitLambda(YLambdaExpression yLambdaExpression)
         {
-            throw new NotImplementedException();
+            // Register parameters for this lambda scope
+            var paramList = new YParameterExpression[yLambdaExpression.Parameters.Length];
+            Array.Copy(yLambdaExpression.Parameters, paramList, yLambdaExpression.Parameters.Length);
+            var (linqParams, disposable) = Register(paramList.AsSequence());
+            using (disposable)
+            {
+                var body = Visit(yLambdaExpression.Body);
+                
+                // Create the lambda expression
+                return Expression.Lambda(yLambdaExpression.Type, body, linqParams);
+            }
         }
 
         protected override Expression VisitListInit(YListInitExpression node)
         {
-            throw new NotImplementedException();
+            var newExpr = Visit(node.NewExpression) as NewExpression;
+            var initializers = new List<ElementInit>();
+            
+            var en = node.Members.GetFastEnumerator();
+            while (en.MoveNext(out var member))
+            {
+                initializers.Add(Expression.ElementInit(member.AddMethod, member.Arguments.Select(Visit)));
+            }
+            
+            return Expression.ListInit(newExpr, initializers);
         }
 
         protected override Expression VisitLoop(YLoopExpression yLoopExpression)
         {
-            throw new NotImplementedException();
+            var breakLabel = GetOrCreateLabel(yLoopExpression.Break);
+            var continueLabel = GetOrCreateLabel(yLoopExpression.Continue);
+            return Expression.Loop(Visit(yLoopExpression.Body), breakLabel, continueLabel);
         }
 
         protected override Expression VisitMemberInit(YMemberInitExpression memberInitExpression)
         {
-            throw new NotImplementedException();
+            var newExpr = Visit(memberInitExpression.Target) as NewExpression;
+            var bindings = new List<MemberBinding>();
+            
+            var en = memberInitExpression.Bindings.GetFastEnumerator();
+            while (en.MoveNext(out var binding))
+            {
+                switch (binding.BindingType)
+                {
+                    case BindingType.MemberAssignment:
+                        var assignment = binding as YMemberAssignment;
+                        bindings.Add(Expression.Bind(binding.Member, Visit(assignment.Value)));
+                        break;
+                    case BindingType.MemberListInit:
+                        var listInit = binding as YMemberElementInit;
+                        var elementInits = listInit.Elements.Select(e => 
+                            Expression.ElementInit(e.AddMethod, e.Arguments.Select(Visit))).ToArray();
+                        bindings.Add(Expression.ListBind(binding.Member, elementInits));
+                        break;
+                    default:
+                        throw new NotSupportedException($"Unsupported binding type: {binding.BindingType}");
+                }
+            }
+            
+            return Expression.MemberInit(newExpr, bindings);
         }
 
         protected override Expression VisitMethodConstant(YMethodConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(System.Reflection.MethodInfo));
         }
 
         protected override Expression VisitNew(YNewExpression yNewExpression)
         {
-            throw new NotImplementedException();
+            return Expression.New(yNewExpression.constructor, yNewExpression.args.Select(Visit));
         }
 
         protected override Expression VisitNewArray(YNewArrayExpression yNewArrayExpression)
         {
-            throw new NotImplementedException();
+            if (yNewArrayExpression.Elements == null || yNewArrayExpression.Elements.Count == 0)
+            {
+                return Expression.NewArrayInit(yNewArrayExpression.ElementType);
+            }
+            return Expression.NewArrayInit(yNewArrayExpression.ElementType, yNewArrayExpression.Elements.Select(Visit));
         }
 
         protected override Expression VisitNewArrayBounds(YNewArrayBoundsExpression yNewArrayBoundsExpression)
         {
-            throw new NotImplementedException();
+            return Expression.NewArrayBounds(yNewArrayBoundsExpression.ElementType, Visit(yNewArrayBoundsExpression.Size));
         }
 
         protected override Expression VisitParameter(YParameterExpression yParameterExpression)
         {
-            throw new NotImplementedException();
+            if (cache.TryGetValue(yParameterExpression, out var param))
+            {
+                return param;
+            }
+            // Create a new parameter if not in cache (shouldn't normally happen)
+            var newParam = Expression.Parameter(yParameterExpression.Type, yParameterExpression.Name);
+            cache[yParameterExpression] = newParam;
+            return newParam;
         }
 
         protected override Expression VisitProperty(YPropertyExpression yPropertyExpression)
         {
-            throw new NotImplementedException();
+            var target = yPropertyExpression.Target == null ? null : Visit(yPropertyExpression.Target);
+            return Expression.Property(target, yPropertyExpression.PropertyInfo);
         }
 
         //protected override Expression VisitRelay(YRelayExpression yRelayExpression)
@@ -296,67 +454,143 @@ namespace YantraJS.SL
 
         protected override Expression VisitReturn(YReturnExpression yReturnExpression)
         {
-            throw new NotImplementedException();
+            var label = GetOrCreateLabel(yReturnExpression.Target);
+            if (yReturnExpression.Default != null)
+            {
+                return Expression.Return(label, Visit(yReturnExpression.Default));
+            }
+            return Expression.Return(label);
         }
 
         protected override Expression VisitStringConstant(YStringConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(string));
         }
 
         protected override Expression VisitSwitch(YSwitchExpression node)
         {
-            throw new NotImplementedException();
+            var target = Visit(node.Target);
+            var defaultBody = node.Default != null ? Visit(node.Default) : null;
+            var cases = node.Cases.Select(c => 
+                Expression.SwitchCase(
+                    Visit(c.Body), 
+                    c.TestValues.Select(Visit)
+                )).ToArray();
+            
+            if (node.CompareMethod != null)
+            {
+                return Expression.Switch(target, defaultBody, node.CompareMethod, cases);
+            }
+            return Expression.Switch(target, defaultBody, cases);
         }
 
         protected override Expression VisitThrow(YThrowExpression throwExpression)
         {
-            throw new NotImplementedException();
+            if (throwExpression.Expression != null)
+            {
+                return Expression.Throw(Visit(throwExpression.Expression));
+            }
+            return Expression.Rethrow();
         }
 
         protected override Expression VisitTryCatchFinally(YTryCatchFinallyExpression tryCatchFinallyExpression)
         {
-            throw new NotImplementedException();
+            var tryBody = Visit(tryCatchFinallyExpression.Try);
+            Expression result = tryBody;
+
+            if (tryCatchFinallyExpression.Catch != null)
+            {
+                var catchBody = Visit(tryCatchFinallyExpression.Catch.Body);
+                ParameterExpression catchParam = null;
+                
+                if (tryCatchFinallyExpression.Catch.Parameter != null)
+                {
+                    var yParam = tryCatchFinallyExpression.Catch.Parameter;
+                    catchParam = Expression.Parameter(yParam.Type, yParam.Name);
+                    cache[yParam] = catchParam;
+                }
+                
+                var catchBlock = Expression.Catch(
+                    catchParam ?? Expression.Parameter(typeof(Exception)),
+                    catchBody);
+                result = Expression.TryCatch(tryBody, catchBlock);
+                
+                if (catchParam != null && tryCatchFinallyExpression.Catch.Parameter != null)
+                {
+                    cache.Remove(tryCatchFinallyExpression.Catch.Parameter);
+                }
+            }
+
+            if (tryCatchFinallyExpression.Finally != null)
+            {
+                var finallyBody = Visit(tryCatchFinallyExpression.Finally);
+                if (tryCatchFinallyExpression.Catch != null)
+                {
+                    // TryCatchFinally
+                    result = Expression.TryFinally(result, finallyBody);
+                }
+                else
+                {
+                    // TryFinally
+                    result = Expression.TryFinally(tryBody, finallyBody);
+                }
+            }
+
+            return result;
         }
 
         protected override Expression VisitTypeAs(YTypeAsExpression yTypeAsExpression)
         {
-            throw new NotImplementedException();
+            return Expression.TypeAs(Visit(yTypeAsExpression.Target), yTypeAsExpression.Type);
         }
 
         protected override Expression VisitTypeConstant(YTypeConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(Type));
         }
 
         protected override Expression VisitTypeIs(YTypeIsExpression yTypeIsExpression)
         {
-            throw new NotImplementedException();
+            return Expression.TypeIs(Visit(yTypeIsExpression.Target), yTypeIsExpression.TypeOperand);
         }
 
         protected override Expression VisitUInt32Constant(YUInt32ConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(uint));
         }
 
         protected override Expression VisitUInt64Constant(YUInt64ConstantExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Constant(node.Value, typeof(ulong));
         }
 
         protected override Expression VisitUnary(YUnaryExpression yUnaryExpression)
         {
-            throw new NotImplementedException();
+            var target = Visit(yUnaryExpression.Target);
+            switch (yUnaryExpression.Operator)
+            {
+                case YUnaryOperator.Not:
+                    return Expression.Not(target);
+                case YUnaryOperator.Negative:
+                    return Expression.Negate(target);
+                case YUnaryOperator.OnesComplement:
+                    return Expression.OnesComplement(target);
+            }
+            throw new NotSupportedException($"Unsupported unary operator: {yUnaryExpression.Operator}");
         }
 
         protected override Expression VisitUnbox(YUnboxExpression node)
         {
-            throw new NotImplementedException();
+            return Expression.Convert(Visit(node.Target), node.Type);
         }
 
         protected override Expression VisitYield(YYieldExpression node)
         {
-            throw new NotImplementedException();
+            // Yield is complex - it requires state machine transformation
+            // For now, throw NotSupportedException as this requires significant work
+            // TODO: Implement state machine transformation for generators
+            throw new NotSupportedException("Yield expressions require state machine transformation and are not yet supported in AOT compilation mode. " +
+                "Consider refactoring to use regular return values or callbacks instead of generators.");
         }
     }
 }
