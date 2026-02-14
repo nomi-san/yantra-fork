@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using YantraJS.Core;
-using YantraJS.Generator;
 
 namespace YantraJS.Tests.Core
 {
@@ -14,7 +13,7 @@ namespace YantraJS.Tests.Core
         public void Function()
         {
 
-            ILCodeGenerator.GenerateLogs = true;
+            // ILCodeGenerator.GenerateLogs = true;
 
             // this.context.Eval("class A { constructor(a) { this.a = a; } } class B extends A { constructor(a) { super(a); } }");
             // Assert.AreEqual(1, context.Eval("x = {get f() { return 1; }}; x.f = 5; x.f"));

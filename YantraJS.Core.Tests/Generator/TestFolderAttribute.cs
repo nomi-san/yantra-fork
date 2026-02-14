@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using YantraJS.Core;
 using YantraJS.Emit;
-using YantraJS.Generator;
 using YantraJS.Utils;
 namespace YantraJS.Tests.Generator
 {
@@ -25,7 +24,7 @@ namespace YantraJS.Tests.Generator
         public TestFolderAttribute(string root, bool saveLambda = false)
         {
             // DictionaryCodeCache.Current = AssemblyCodeCache.Instance;
-            ILCodeGenerator.GenerateLogs = true;
+            // ILCodeGenerator.GenerateLogs = true;
             this.root = root;
             this.saveLambda = saveLambda;
         }
