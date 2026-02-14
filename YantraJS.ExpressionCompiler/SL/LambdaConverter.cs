@@ -409,15 +409,67 @@ namespace YantraJS.SL
         protected override Expression VisitListInit(YListInitExpression node)
         {
             var newExpr = Visit(node.NewExpression) as NewExpression;
-            var initializers = new List<ElementInit>();
             
-            var en = node.Members.GetFastEnumerator();
-            while (en.MoveNext(out var member))
+            // Check if the type implements IEnumerable
+            // Expression.ListInit requires IEnumerable but some types like JSArray don't implement it
+            var type = newExpr.Type;
+            var isEnumerable = typeof(System.Collections.IEnumerable).IsAssignableFrom(type);
+            
+            if (isEnumerable)
             {
-                initializers.Add(Expression.ElementInit(member.AddMethod, member.Arguments.Select(Visit)));
+                // Use built-in ListInit for IEnumerable types
+                var initializers = new List<ElementInit>();
+                var en = node.Members.GetFastEnumerator();
+                while (en.MoveNext(out var member))
+                {
+                    initializers.Add(Expression.ElementInit(member.AddMethod, member.Arguments.Select(Visit)));
+                }
+                return Expression.ListInit(newExpr, initializers);
             }
-            
-            return Expression.ListInit(newExpr, initializers);
+            else
+            {
+                // For non-IEnumerable types, manually create a block with Add calls
+                var variable = Expression.Variable(type, "listInit");
+                var expressions = new List<Expression>();
+                
+                // Assign the new instance to the variable
+                expressions.Add(Expression.Assign(variable, newExpr));
+                
+                // Add each initializer as a method call
+                var en = node.Members.GetFastEnumerator();
+                while (en.MoveNext(out var member))
+                {
+                    // Visit arguments and convert types if necessary
+                    var visitedArgs = new List<Expression>();
+                    var parameters = member.AddMethod.GetParameters();
+                    int argIndex = 0;
+                    
+                    var argEn = member.Arguments.GetFastEnumerator();
+                    while (argEn.MoveNext(out var arg))
+                    {
+                        var visitedArg = Visit(arg);
+                        
+                        // Convert type if necessary
+                        if (argIndex < parameters.Length)
+                        {
+                            var paramType = parameters[argIndex].ParameterType;
+                            if (visitedArg.Type != paramType && !paramType.IsAssignableFrom(visitedArg.Type))
+                            {
+                                visitedArg = Expression.Convert(visitedArg, paramType);
+                            }
+                        }
+                        visitedArgs.Add(visitedArg);
+                        argIndex++;
+                    }
+                    
+                    expressions.Add(Expression.Call(variable, member.AddMethod, visitedArgs));
+                }
+                
+                // Return the variable
+                expressions.Add(variable);
+                
+                return Expression.Block(new[] { variable }, expressions);
+            }
         }
 
         protected override Expression VisitLoop(YLoopExpression yLoopExpression)
