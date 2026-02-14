@@ -5,21 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using YantraJS.Core;
 using YantraJS.Core.Clr;
 
-#if !NETSTANDARD2_1
-namespace System.Diagnostics.CodeAnalysis
-{
-    public class NotNullWhenAttribute : Attribute
-    {
-
-        public NotNullWhenAttribute(bool value)
-        {
-
-        }
-
-    }
-}
-#endif
-
 
 namespace YantraJS.Core
 {
