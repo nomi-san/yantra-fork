@@ -590,7 +590,70 @@ namespace YantraJS.SL
         {
             if (throwExpression.Expression != null)
             {
-                return Expression.Throw(Visit(throwExpression.Expression));
+                var valueExpr = Visit(throwExpression.Expression);
+                
+                // If the expression is already an Exception type, throw it directly
+                if (typeof(Exception).IsAssignableFrom(valueExpr.Type))
+                {
+                    return Expression.Throw(valueExpr);
+                }
+                
+                // Otherwise, wrap it in JSException.FromValue
+                // Find JSException type by name (to avoid hard reference to YantraJS.Core)
+                var jsExceptionType = valueExpr.Type.Assembly.GetType("YantraJS.Core.JSException");
+                if (jsExceptionType == null)
+                {
+                    // Fallback: if JSException not found, try to convert to string and throw InvalidOperationException
+                    var message = Expression.Call(valueExpr, valueExpr.Type.GetMethod("ToString", Type.EmptyTypes));
+                    var invalidOpEx = Expression.New(
+                        typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) }),
+                        message);
+                    return Expression.Throw(invalidOpEx);
+                }
+                
+                // Find JSValue type
+                var jsValueType = valueExpr.Type.Assembly.GetType("YantraJS.Core.JSValue");
+                if (jsValueType == null)
+                {
+                    jsValueType = valueExpr.Type; // If JSValue not found, use the expression type
+                }
+                
+                // Find JSException.FromValue(JSValue) method
+                var fromValueMethod = jsExceptionType.GetMethod(
+                    "FromValue", 
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    new[] { jsValueType },
+                    null);
+                
+                if (fromValueMethod == null)
+                {
+                    // Fallback to constructor
+                    var ctor = jsExceptionType.GetConstructor(new[] { jsValueType });
+                    if (ctor != null)
+                    {
+                        if (valueExpr.Type != jsValueType)
+                        {
+                            valueExpr = Expression.Convert(valueExpr, jsValueType);
+                        }
+                        var exceptionExpr = Expression.New(ctor, valueExpr);
+                        return Expression.Throw(exceptionExpr);
+                    }
+                }
+                else
+                {
+                    // Convert the expression to JSValue if needed
+                    if (valueExpr.Type != jsValueType)
+                    {
+                        valueExpr = Expression.Convert(valueExpr, jsValueType);
+                    }
+                    
+                    var exceptionExpr = Expression.Call(fromValueMethod, valueExpr);
+                    return Expression.Throw(exceptionExpr);
+                }
+                
+                // Last resort: throw as-is (will likely fail)
+                return Expression.Throw(valueExpr);
             }
             return Expression.Rethrow();
         }
@@ -602,25 +665,71 @@ namespace YantraJS.SL
 
             if (tryCatchFinallyExpression.Catch != null)
             {
-                var catchBody = Visit(tryCatchFinallyExpression.Catch.Body);
-                ParameterExpression catchParam = null;
+                var yParam = tryCatchFinallyExpression.Catch.Parameter;
+                ParameterExpression exceptionParam = Expression.Parameter(typeof(Exception), "ex");
                 
-                if (tryCatchFinallyExpression.Catch.Parameter != null)
+                Expression catchBody;
+                
+                if (yParam != null)
                 {
-                    var yParam = tryCatchFinallyExpression.Catch.Parameter;
-                    catchParam = Expression.Parameter(yParam.Type, yParam.Name);
-                    cache[yParam] = catchParam;
+                    // Check if we need to convert Exception to JSVariable or other type
+                    var jsVariableType = yParam.Type.Assembly?.GetType("YantraJS.Core.JSVariable");
+                    
+                    if (jsVariableType != null && yParam.Type == jsVariableType)
+                    {
+                        // Create a variable for JSVariable and initialize it from the exception
+                        var jsVarParam = Expression.Parameter(yParam.Type, yParam.Name);
+                        cache[yParam] = jsVarParam;
+                        
+                        // Find JSVariable constructor: JSVariable(Exception e, string name)
+                        var ctor = jsVariableType.GetConstructor(new[] { typeof(Exception), typeof(string) });
+                        if (ctor != null)
+                        {
+                            // Create: var varName = new JSVariable(ex, "varName");
+                            var initExpr = Expression.Assign(
+                                jsVarParam,
+                                Expression.New(ctor, exceptionParam, Expression.Constant(yParam.Name)));
+                            
+                            // Wrap catch body in a block with the variable initialization
+                            var bodyExpr = Visit(tryCatchFinallyExpression.Catch.Body);
+                            catchBody = Expression.Block(
+                                new[] { jsVarParam },
+                                initExpr,
+                                bodyExpr);
+                        }
+                        else
+                        {
+                            // Fallback if constructor not found
+                            catchBody = Visit(tryCatchFinallyExpression.Catch.Body);
+                        }
+                        
+                        cache.Remove(yParam);
+                    }
+                    else if (typeof(Exception).IsAssignableFrom(yParam.Type))
+                    {
+                        // Parameter is already an Exception type
+                        var catchParam = Expression.Parameter(yParam.Type, yParam.Name);
+                        cache[yParam] = catchParam;
+                        catchBody = Visit(tryCatchFinallyExpression.Catch.Body);
+                        cache.Remove(yParam);
+                        exceptionParam = catchParam; // Use the typed exception parameter
+                    }
+                    else
+                    {
+                        // Other types - try direct mapping
+                        var catchParam = Expression.Parameter(yParam.Type, yParam.Name);
+                        cache[yParam] = catchParam;
+                        catchBody = Visit(tryCatchFinallyExpression.Catch.Body);
+                        cache.Remove(yParam);
+                    }
+                }
+                else
+                {
+                    catchBody = Visit(tryCatchFinallyExpression.Catch.Body);
                 }
                 
-                var catchBlock = Expression.Catch(
-                    catchParam ?? Expression.Parameter(typeof(Exception)),
-                    catchBody);
+                var catchBlock = Expression.Catch(exceptionParam, catchBody);
                 result = Expression.TryCatch(tryBody, catchBlock);
-                
-                if (catchParam != null && tryCatchFinallyExpression.Catch.Parameter != null)
-                {
-                    cache.Remove(tryCatchFinallyExpression.Catch.Parameter);
-                }
             }
 
             if (tryCatchFinallyExpression.Finally != null)
