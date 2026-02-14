@@ -18,6 +18,11 @@
 	  <EmbedAllSources>True</EmbedAllSources>
 	  <DebugType>embedded</DebugType>
        <DebugSymbols>true</DebugSymbols>
+    <!-- AOT Compatibility -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
 
 	<PropertyGroup>
