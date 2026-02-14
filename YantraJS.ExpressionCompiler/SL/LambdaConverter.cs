@@ -331,7 +331,25 @@ namespace YantraJS.SL
         protected override Expression VisitIndex(YIndexExpression yIndexExpression)
         {
             var target = Visit(yIndexExpression.Target);
-            return Expression.Property(target, yIndexExpression.Property, yIndexExpression.Arguments.Select(Visit));
+            var args = yIndexExpression.Arguments.Select(Visit).ToArray();
+            
+            // Check if the property is valid for the target type
+            var property = yIndexExpression.Property;
+            if (property.DeclaringType != null && !property.DeclaringType.IsAssignableFrom(target.Type))
+            {
+                // Find the property on the actual target type
+                var indexParams = property.GetIndexParameters();
+                var paramTypes = indexParams.Select(p => p.ParameterType).ToArray();
+                
+                // Try to find matching indexer on target type
+                var targetProperty = target.Type.GetProperty("Item", paramTypes);
+                if (targetProperty != null)
+                {
+                    property = targetProperty;
+                }
+            }
+            
+            return Expression.Property(target, property, args);
         }
 
         protected override Expression VisitInt32Constant(YInt32ConstantExpression node)
