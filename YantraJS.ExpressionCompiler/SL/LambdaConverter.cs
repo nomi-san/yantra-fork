@@ -207,10 +207,53 @@ namespace YantraJS.SL
 
         protected override Expression VisitConditional(YConditionalExpression yConditionalExpression)
         {
-            return Expression.Condition(
-                Visit(yConditionalExpression.test),
-                Visit(yConditionalExpression.@true),
-                Visit(yConditionalExpression.@false));
+            var test = Visit(yConditionalExpression.test);
+            var trueExpr = Visit(yConditionalExpression.@true);
+            var falseExpr = yConditionalExpression.@false != null 
+                ? Visit(yConditionalExpression.@false) 
+                : Expression.Empty();
+            
+            // Ensure both branches have compatible types for Expression.Condition
+            // If one branch is void, both must be void
+            if (trueExpr.Type == typeof(void) && falseExpr.Type == typeof(void))
+            {
+                // Both are void, use IfThenElse pattern instead of Condition
+                return Expression.IfThenElse(test, trueExpr, falseExpr);
+            }
+            
+            // If types don't match, try to make them compatible
+            if (trueExpr.Type != falseExpr.Type)
+            {
+                // If one is void, convert to block that returns default value
+                if (trueExpr.Type == typeof(void))
+                {
+                    trueExpr = Expression.Block(trueExpr, Expression.Default(falseExpr.Type));
+                }
+                else if (falseExpr.Type == typeof(void))
+                {
+                    falseExpr = Expression.Block(falseExpr, Expression.Default(trueExpr.Type));
+                }
+                else
+                {
+                    // Try to find common type
+                    var resultType = trueExpr.Type;
+                    if (!trueExpr.Type.IsAssignableFrom(falseExpr.Type))
+                    {
+                        resultType = typeof(object);
+                    }
+                    
+                    if (trueExpr.Type != resultType)
+                    {
+                        trueExpr = Expression.Convert(trueExpr, resultType);
+                    }
+                    if (falseExpr.Type != resultType)
+                    {
+                        falseExpr = Expression.Convert(falseExpr, resultType);
+                    }
+                }
+            }
+            
+            return Expression.Condition(test, trueExpr, falseExpr);
         }
 
         protected override Expression VisitConstant(YConstantExpression yConstantExpression)
