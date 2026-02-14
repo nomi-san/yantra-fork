@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using YantraJS.Expressions;
@@ -7,6 +8,7 @@ namespace YantraJS
 {
     public abstract class BoxHelper
     {
+        [RequiresDynamicCode("Creating generic types at runtime requires dynamic code generation.")]
         public static BoxHelper For(Type type)
         {
             return Activator.CreateInstance(typeof(BoxHelper<>).MakeGenericType(type)) as BoxHelper;
@@ -23,6 +25,7 @@ namespace YantraJS
 
     public class BoxHelper<T>: BoxHelper
     {
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor | DynamicallyAccessedMemberTypes.PublicConstructors)]
         public static readonly  Type _BoxType = typeof(Box<T>);
 
         public override Type BoxType => _BoxType;

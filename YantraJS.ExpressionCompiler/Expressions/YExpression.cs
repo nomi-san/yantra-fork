@@ -2,6 +2,7 @@
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -498,7 +499,9 @@ namespace YantraJS.Expressions
         {
             return new YNewExpression(constructor, args.AsSequence());
         }
-        public static YNewExpression New(Type type, params YExpression[] args)
+        public static YNewExpression New(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, 
+            params YExpression[] args)
         {
             var constructor = type.GetConstructor(args.Select(x => x.Type).ToArray());
             return new YNewExpression(constructor, args.AsSequence());
@@ -515,7 +518,7 @@ namespace YantraJS.Expressions
 
         public static YFieldExpression Field(YExpression target, string name)
         {
-            var field = target.Type.GetUnderlyingTypeIfRef().GetField(name);
+            var field = target.Type.GetUnderlyingTypeIfRef()?.GetField(name);
 
             return new YFieldExpression(target, field);
         }
@@ -523,7 +526,8 @@ namespace YantraJS.Expressions
         public static YInvokeExpression Invoke(YExpression target, IFastEnumerable<YExpression> args)
         {
             var t = target.Type;
-            var type = t.GetMethod("Invoke").ReturnType;
+            var invokeMethod = t.GetMethod("Invoke");
+            var type = invokeMethod?.ReturnType ?? typeof(object);
             return new YInvokeExpression(target, args, type);
         }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -462,6 +463,9 @@ namespace YantraJS.SL
             return Expression.New(yNewExpression.constructor, yNewExpression.args.Select(Visit));
         }
 
+        [RequiresDynamicCode("Creating arrays at runtime requires dynamic code generation.")]
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL3050",
+            Justification = "Array creation is necessary for expression compilation and is guarded by RequiresDynamicCode.")]
         protected override Expression VisitNewArray(YNewArrayExpression yNewArrayExpression)
         {
             if (yNewArrayExpression.Elements == null || yNewArrayExpression.Elements.Count == 0)
@@ -471,6 +475,9 @@ namespace YantraJS.SL
             return Expression.NewArrayInit(yNewArrayExpression.ElementType, yNewArrayExpression.Elements.Select(Visit));
         }
 
+        [RequiresDynamicCode("Creating arrays at runtime requires dynamic code generation.")]
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL3050",
+            Justification = "Array creation is necessary for expression compilation and is guarded by RequiresDynamicCode.")]
         protected override Expression VisitNewArrayBounds(YNewArrayBoundsExpression yNewArrayBoundsExpression)
         {
             return Expression.NewArrayBounds(yNewArrayBoundsExpression.ElementType, Visit(yNewArrayBoundsExpression.Size));
