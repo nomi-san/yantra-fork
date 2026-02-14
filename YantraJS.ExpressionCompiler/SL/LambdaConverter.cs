@@ -65,7 +65,9 @@ namespace YantraJS.SL
 
         protected override Expression VisitArrayIndex(YArrayIndexExpression yArrayIndexExpression)
         {
-            return Expression.ArrayIndex(Visit(yArrayIndexExpression.Target), Visit(yArrayIndexExpression.Index));
+            // Use ArrayAccess instead of ArrayIndex to ensure the expression is writable
+            // This is important for assignments like: array[index] = value
+            return Expression.ArrayAccess(Visit(yArrayIndexExpression.Target), Visit(yArrayIndexExpression.Index));
         }
 
         protected override Expression VisitArrayLength(YArrayLengthExpression arrayLengthExpression)
