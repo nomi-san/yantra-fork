@@ -1,6 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using YantraJS.Core;
-using YantraJS.Emit;
 
 namespace YantraJS.Tests.AOT
 {
@@ -11,8 +10,6 @@ namespace YantraJS.Tests.AOT
         public void FibonacciWithConditional_AOT()
         {
             // This is the exact test case from the bug report
-            DictionaryCodeCache.UseAOTCompilation = true;
-
             var context = new JSContext();
             var result = "";
             context.Log += (s, e) => result = e.ToString();
@@ -26,16 +23,11 @@ namespace YantraJS.Tests.AOT
             ");
 
             Assert.AreEqual("10", result);
-            
-            // Reset for cleanup
-            DictionaryCodeCache.UseAOTCompilation = false;
         }
 
         [TestMethod]
         public void SimpleIfStatement_AOT()
         {
-            DictionaryCodeCache.UseAOTCompilation = true;
-
             var context = new JSContext();
             var result = "";
             context.Log += (s, e) => result = e.ToString();
@@ -50,16 +42,11 @@ namespace YantraJS.Tests.AOT
             ");
 
             Assert.AreEqual("greater", result);
-            
-            // Reset for cleanup
-            DictionaryCodeCache.UseAOTCompilation = false;
         }
 
         [TestMethod]
         public void NestedConditionals_AOT()
         {
-            DictionaryCodeCache.UseAOTCompilation = true;
-
             var context = new JSContext();
             var result = "";
             context.Log += (s, e) => result = e.ToString();
@@ -80,9 +67,6 @@ namespace YantraJS.Tests.AOT
             ");
 
             Assert.AreEqual("large", result);
-            
-            // Reset for cleanup
-            DictionaryCodeCache.UseAOTCompilation = false;
         }
     }
 }

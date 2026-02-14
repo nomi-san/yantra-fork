@@ -392,22 +392,11 @@ namespace YantraJS.Core.Clr
         {
             var pe = Expression.Parameter(ArgumentsBuilder.refType);
             var name = this.name.Value;
-            JSFunctionDelegate newDelegate;
-            try
-            {
-                newDelegate = Expression.Lambda<JSFunctionDelegate>(name,
+            JSFunctionDelegate newDelegate =
+                Expression.Lambda<JSFunctionDelegate>(name,
                     ClrProxyBuilder.From(Expression.New(c,pe)),
                     pe
                 ).CompileAOT();
-            }
-            catch
-            {
-                // Fall back to Reflection.Emit if AOT fails
-                newDelegate = Expression.Lambda<JSFunctionDelegate>(name,
-                    ClrProxyBuilder.From(Expression.New(c,pe)),
-                    pe
-                ).Compile();
-            }
             return new JSFunction(newDelegate, name);
         }
 
