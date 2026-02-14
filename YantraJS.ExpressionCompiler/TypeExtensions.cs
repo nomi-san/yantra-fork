@@ -1,7 +1,6 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -36,9 +35,7 @@ namespace YantraJS
             return $"\"{sb.ToString()}\"";
         }
 
-        public static ConstructorInfo GetConstructor(
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] this Type type, 
-            params Type[] args)
+        public static ConstructorInfo GetConstructor(this Type type, params Type[] args)
             => type.GetConstructor(args);
 
 

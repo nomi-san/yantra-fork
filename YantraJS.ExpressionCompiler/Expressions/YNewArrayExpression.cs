@@ -2,7 +2,6 @@
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using YantraJS.Core;
 
@@ -13,7 +12,6 @@ namespace YantraJS.Expressions
         public readonly IFastEnumerable<YExpression>? Elements;
         public readonly Type ElementType;
 
-        [RequiresDynamicCode("Creating arrays at runtime requires dynamic code generation.")]
         public YNewArrayExpression(Type type, IFastEnumerable<YExpression> elements)
             : base( YExpressionType.NewArray, type.MakeArrayType())
         {

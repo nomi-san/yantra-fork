@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -26,9 +25,6 @@ namespace YantraJS
             return (T)method.CreateDelegate(typeof(T));
         }
 
-        [RequiresDynamicCode("Making generic methods at runtime requires dynamic code generation.")]
-        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2060",
-            Justification = "MakeGenericMethod is necessary for generic delegate creation and is guarded by RequiresDynamicCode.")]
         private static T CreateTypedDelegate<T>(
             this MethodInfo method, params Type[] types)
             where T : Delegate

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.CodeDom.Compiler;
-using System.Diagnostics.CodeAnalysis;
 
 namespace YantraJS.Expressions
 {
@@ -9,7 +8,6 @@ namespace YantraJS.Expressions
         public readonly Type ElementType;
         public readonly YExpression Size;
 
-        [RequiresDynamicCode("Creating arrays at runtime requires dynamic code generation.")]
         public YNewArrayBoundsExpression(Type type, YExpression size)
             : base(YExpressionType.NewArrayBounds, type.MakeArrayType())
         {

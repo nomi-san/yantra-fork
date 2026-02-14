@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <AssemblyName>YantraJS.Core</AssemblyName>
     <PackageId>YantraJS.Core</PackageId>
     <PackageTags>yantra,yantrajs,javascript,c#,standard,core,framework,.net</PackageTags>
@@ -18,11 +18,6 @@
 	  <EmbedAllSources>True</EmbedAllSources>
 	  <DebugType>embedded</DebugType>
        <DebugSymbols>true</DebugSymbols>
-    <!-- AOT Compatibility -->
-    <IsAotCompatible>true</IsAotCompatible>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
-    <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
 
 	<PropertyGroup>
