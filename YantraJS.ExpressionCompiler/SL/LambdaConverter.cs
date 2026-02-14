@@ -559,7 +559,24 @@ namespace YantraJS.SL
             var label = GetOrCreateLabel(yReturnExpression.Target);
             if (yReturnExpression.Default != null)
             {
-                return Expression.Return(label, Visit(yReturnExpression.Default));
+                var valueExpr = Visit(yReturnExpression.Default);
+                
+                // Ensure the value matches the label's type
+                if (label.Type != typeof(void) && valueExpr.Type != label.Type)
+                {
+                    // Try to convert the expression to the expected type
+                    if (valueExpr.Type.IsAssignableFrom(label.Type) || label.Type.IsAssignableFrom(valueExpr.Type))
+                    {
+                        valueExpr = Expression.Convert(valueExpr, label.Type);
+                    }
+                    else if (valueExpr.Type == typeof(object) && label.Type != typeof(object))
+                    {
+                        // Convert from object to the target type
+                        valueExpr = Expression.Convert(valueExpr, label.Type);
+                    }
+                }
+                
+                return Expression.Return(label, valueExpr);
             }
             return Expression.Return(label);
         }
