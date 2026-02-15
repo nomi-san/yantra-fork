@@ -39,7 +39,7 @@ namespace YantraJS.Linq
                     )
                 ); ;
 
-            var outer = f.CompileInAssembly();
+            var outer = f.Compile();
 
             var fx = outer();
 

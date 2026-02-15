@@ -13,7 +13,7 @@ namespace YantraJS
         public static T CompileInAssembly<T>(this Expression<T> expression)
         {
             var ll = LinqConverters.ToLLExpression(expression);
-            return ll.As<T>().CompileInAssembly();
+            return ll.As<T>().Compile();
         }
 
 

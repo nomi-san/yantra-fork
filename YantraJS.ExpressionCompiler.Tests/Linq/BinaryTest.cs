@@ -46,7 +46,7 @@ namespace YantraJS.Linq
                     a2)
                 , a);
 
-            var f = exp.CompileInAssembly();
+            var f = exp.Compile();
 
             Assert.AreEqual(10, f(1, 10, 2));
         }

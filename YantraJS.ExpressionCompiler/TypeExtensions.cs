@@ -80,6 +80,9 @@ namespace YantraJS
             return type.Name;
         }
 
+        // Commented out - unused method that depends on System.Reflection.Emit
+        // which has been removed from the project for AOT compatibility
+        /*
         public static System.Reflection.Emit.MethodBuilder CreateMethod(
             this System.Reflection.Emit.TypeBuilder type,
             YLambdaExpression exp,
@@ -100,15 +103,11 @@ namespace YantraJS
             {
                 var p = pa[i];
                 var pd = m.DefineParameter(i + 1, ParameterAttributes.None, p.Name);
-                //foreach(var cb in p.GetCustomAttributes())
-                //{
-                //    System.Diagnostics.Debug.WriteLine(cb);
-                //}
             }
-
 
             return m;
         }
+        */
     }
 
 }

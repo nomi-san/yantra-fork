@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using YantraJS.Expressions;
+using YantraJS.Runtime;
 
 namespace YantraJS.Linq
 {
@@ -35,7 +36,7 @@ namespace YantraJS.Linq
 
             var lambda = YExpression.Lambda<Func<string, ScriptInfo>>("c", create, b);
 
-            var fx = lambda.CompileInAssembly();
+            var fx = lambda.Compile();
 
 
             var r = fx("a");

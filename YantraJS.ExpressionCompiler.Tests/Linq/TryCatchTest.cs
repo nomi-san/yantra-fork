@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using YantraJS.Core;
 using YantraJS.Expressions;
-using YantraJS.Generator;
 using YantraJS.Runtime;
 
 namespace YantraJS.Linq
@@ -28,12 +27,12 @@ namespace YantraJS.Linq
                 YExpression.Call(null, method)                
                 );
 
-            ILCodeGenerator.GenerateLogs = true;
+            // ILCodeGenerator.GenerateLogs = true;
 
             var r = YExpression.Lambda<Func<int,int>>("finallyTest",
                 @try, new YParameterExpression[] { i });
 
-            var fx = r.CompileInAssembly();
+            var fx = r.Compile();
 
             Assert.AreEqual(4, fx(2));
 

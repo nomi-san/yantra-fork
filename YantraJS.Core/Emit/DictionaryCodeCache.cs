@@ -20,7 +20,6 @@ namespace YantraJS.Emit
             return cache.GetOrCreate(code.Key, (k) => {
                 var  exp = compiler();
                 return exp.CompileWithNestedLambdas();
-                // return exp.CompileDynamic();
             });
         }
 

@@ -23,7 +23,7 @@ namespace YantraJS.ExpressionCompiler.Tests
             var lambda = YExpression.Lambda<Func<int,int,int>>("a",
                 YExpression.Binary(p1, YOperator.Add, p2), new YParameterExpression[] { p1, p2 });
 
-            var fx = lambda.CompileInAssembly();
+            var fx = lambda.Compile();
 
             Assert.AreEqual(3, fx(1, 2));
         }
@@ -66,7 +66,7 @@ namespace YantraJS.ExpressionCompiler.Tests
         [TestMethod]
         public void SaveLocal()
         {
-            Generator.ILCodeGenerator.GenerateLogs = true;
+            // Generator.ILCodeGenerator.GenerateLogs = true;
             var p1 = YExpression.Parameter(typeof(int));
             var p2 = YExpression.Parameter(typeof(int));
 

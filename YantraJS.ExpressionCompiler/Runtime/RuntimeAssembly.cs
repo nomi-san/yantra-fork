@@ -1,123 +1,87 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Text;
-using System.Threading;
-using YantraJS.Core;
+using System;
+using System.Linq.Expressions;
 using YantraJS.Expressions;
-using YantraJS.Generator;
+using YantraJS.SL;
 
 namespace YantraJS.Runtime
 {
+    /// <summary>
+    /// Compilation methods using Expression.Compile()
+    /// Supports both JIT (for performance) and interpretation (for AOT).
+    /// </summary>
     public static class RuntimeAssembly
     {
+        /// <summary>
+        /// When true, uses interpretation mode for AOT compatibility but higher memory usage.
+        /// When false, uses JIT compilation for better performance and memory efficiency.
+        /// Default is false (JIT) for better memory efficiency.
+        /// </summary>
+        public static bool PreferInterpretation { get; set; } = false;
 
-        public static object Compile(this YLambdaExpression exp)
-        {
-            exp = exp.WithThis(typeof(Closures));
-
-            var method = new DynamicMethod(exp.Name.FullName, exp.ReturnType, exp.ParameterTypesWithThis, typeof(Closures), true);
-            
-            var ilg = method.GetILGenerator();
-
-            ILCodeGenerator icg = new ILCodeGenerator(ilg, null);
-            icg.Emit(exp);
-
-            var c = new Closures(null, null, null, null);
-
-            return (object)method.CreateDelegate(exp.Type, c);
-        }
-
+        /// <summary>
+        /// Compiles a YExpression to a delegate.
+        /// </summary>
+        /// <typeparam name="T">The delegate type</typeparam>
+        /// <param name="exp">The YExpression to compile</param>
+        /// <returns>Compiled delegate</returns>
         public static T Compile<T>(this YExpression<T> exp)
         {
-            exp = exp.WithThis<T>(typeof(Closures));
-
-            // var f = new FlattenVisitor();
-
-            var method = new DynamicMethod(exp.Name.FullName, exp.ReturnType, exp.ParameterTypesWithThis, typeof(Closures), true);
-
-            var ilg = method.GetILGenerator();
-
-            var sw = new StringWriter();
-            var expWriter = new StringWriter();
-            ILCodeGenerator icg = new ILCodeGenerator(ilg, null, sw, expWriter);
-            icg.Emit(exp);
-
-            string il = sw.ToString();
-
-            var c = new Closures(null, null, il, expWriter.ToString());
-            return (T)(object)method.CreateDelegate(typeof(T), c);
+            // Convert YExpression to LINQ Expression
+            var converter = new LambdaConverter();
+            var linqExpr = converter.Visit(exp) as LambdaExpression;
+            
+            if (linqExpr == null)
+            {
+                throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
+            }
+            
+            // Compile with user-specified preference
+            // preferInterpretation: false = JIT compilation (better performance, less memory)
+            // preferInterpretation: true = Interpretation (AOT compatible, more memory)
+            return ((Expression<T>)linqExpr).Compile(preferInterpretation: PreferInterpretation);
         }
 
-
-        internal static (DynamicMethod, string il, string exp) CompileToBoundDynamicMethod(
-            this YLambdaExpression exp, Type boundType = null, IMethodBuilder methodBuilder = null)
+        /// <summary>
+        /// Compiles a YLambdaExpression to a delegate.
+        /// </summary>
+        /// <param name="exp">The YLambdaExpression to compile</param>
+        /// <returns>Compiled delegate</returns>
+        public static object Compile(this YLambdaExpression exp)
         {
-            // create closure...
-
-            boundType = boundType ?? typeof(Closures);
-
-            // dynamic method expects this as first parameter !!
-
-
-            var method = new DynamicMethod(exp.Name.FullName, exp.ReturnType, exp.ParameterTypesWithThis, boundType, true);
-
-            var ilg = method.GetILGenerator();
-            StringWriter sw = new StringWriter();
-            var expWriter = new StringWriter();
-            // ILCodeGenerator.GenerateLogs = true;
-            ILCodeGenerator icg = new ILCodeGenerator(ilg, methodBuilder,  sw, expWriter);
-            icg.Emit(exp);
-
-            string il = sw.ToString();
-
-            return (method, il, expWriter.ToString());
-
+            // Convert YExpression to LINQ Expression
+            var converter = new LambdaConverter();
+            var linqExpr = converter.Visit(exp) as LambdaExpression;
+            
+            if (linqExpr == null)
+            {
+                throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
+            }
+            
+            // Compile with user-specified preference
+            return linqExpr.Compile(preferInterpretation: PreferInterpretation);
         }
 
-        public static T CompileWithNestedLambdas<T>(this YExpression<T> expression)
+        /// <summary>
+        /// Compiles a YExpression with nested lambdas.
+        /// This method handles nested lambda expressions by recursively converting and compiling them.
+        /// </summary>
+        /// <typeparam name="T">The delegate type</typeparam>
+        /// <param name="exp">The YExpression to compile</param>
+        /// <returns>Compiled delegate result</returns>
+        public static T CompileWithNestedLambdas<T>(this YExpression<T> exp)
         {
-            var repository = new MethodRepository();
-
-            var outerLambda = YExpression
-                .InstanceLambda<Func<T>>(
-                    expression.Name + "_outer", 
-                    expression, 
-                    YExpression.Parameter(typeof(Closures))
-                    , new YParameterExpression[] { })
-                as YLambdaExpression;
-
-
-            //var f = new FlattenVisitor();
-            //outerLambda = f.Visit(outerLambda) as YLambdaExpression;
-
-            LambdaRewriter.Rewrite(outerLambda);
-            //    as YLambdaExpression;
-
-
-
-            var runtimeMethodBuilder = new RuntimeMethodBuilder(repository);
-
-            // NestedRewriter nw = new NestedRewriter(outerLambda, runtimeMethodBuilder);
-
-            // outerLambda = nw.Visit(outerLambda) as YLambdaExpression;
-
-            var (outer, il, exp) = outerLambda.CompileToBoundDynamicMethod(typeof(Closures), runtimeMethodBuilder);
-
-            repository.IL = il;
-            repository.Exp = exp;
-            var root = new Closures(repository, null, il, exp);
-
-            // var fx = Delegate.CreateDelegate(typeof(Func<T>), repository, outer, true);
-            var func = outer.CreateDelegate(typeof(Func<T>), root) as Func<T>;
-
-            return func();
-
-            // return (T)(object)outer.CreateDelegate(typeof(Func<T>), repository);
-            // return (T)func.DynamicInvoke();
+            // For nested lambdas, we need to ensure all inner lambdas are also converted
+            // The LambdaConverter.VisitLambda method handles this recursively
+            var converter = new LambdaConverter();
+            var linqExpr = converter.Visit(exp) as LambdaExpression;
+            
+            if (linqExpr == null)
+            {
+                throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
+            }
+            
+            // Compile with user-specified preference
+            return ((Expression<T>)linqExpr).Compile(preferInterpretation: PreferInterpretation);
         }
-
     }
 }

@@ -80,7 +80,7 @@ namespace YantraJS.Linq
 
             var lambda = YExpression.Lambda<Func<string, ScriptInfo>>("c", create, b);
 
-            var fx = lambda.CompileInAssembly();
+            var fx = lambda.Compile();
 
 
             var r = fx("a");
