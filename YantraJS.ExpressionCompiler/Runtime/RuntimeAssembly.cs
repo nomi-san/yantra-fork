@@ -6,13 +6,20 @@ using YantraJS.SL;
 namespace YantraJS.Runtime
 {
     /// <summary>
-    /// Compilation methods using Expression.Compile(preferInterpretation: true)
-    /// Compatible with Native AOT deployment scenarios.
+    /// Compilation methods using Expression.Compile()
+    /// Supports both JIT (for performance) and interpretation (for AOT).
     /// </summary>
     public static class RuntimeAssembly
     {
         /// <summary>
-        /// Compiles a YExpression to a delegate using LINQ Expression interpretation.
+        /// When true, uses interpretation mode for AOT compatibility but higher memory usage.
+        /// When false, uses JIT compilation for better performance and memory efficiency.
+        /// Default is false (JIT) for better memory efficiency.
+        /// </summary>
+        public static bool PreferInterpretation { get; set; } = false;
+
+        /// <summary>
+        /// Compiles a YExpression to a delegate.
         /// </summary>
         /// <typeparam name="T">The delegate type</typeparam>
         /// <param name="exp">The YExpression to compile</param>
@@ -28,12 +35,14 @@ namespace YantraJS.Runtime
                 throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
             }
             
-            // Compile with interpretation preference for AOT compatibility
-            return ((Expression<T>)linqExpr).Compile(preferInterpretation: true);
+            // Compile with user-specified preference
+            // preferInterpretation: false = JIT compilation (better performance, less memory)
+            // preferInterpretation: true = Interpretation (AOT compatible, more memory)
+            return ((Expression<T>)linqExpr).Compile(preferInterpretation: PreferInterpretation);
         }
 
         /// <summary>
-        /// Compiles a YLambdaExpression to a delegate using LINQ Expression interpretation.
+        /// Compiles a YLambdaExpression to a delegate.
         /// </summary>
         /// <param name="exp">The YLambdaExpression to compile</param>
         /// <returns>Compiled delegate</returns>
@@ -48,12 +57,12 @@ namespace YantraJS.Runtime
                 throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
             }
             
-            // Compile with interpretation preference for AOT compatibility
-            return linqExpr.Compile(preferInterpretation: true);
+            // Compile with user-specified preference
+            return linqExpr.Compile(preferInterpretation: PreferInterpretation);
         }
 
         /// <summary>
-        /// Compiles a YExpression with nested lambdas using LINQ Expression interpretation.
+        /// Compiles a YExpression with nested lambdas.
         /// This method handles nested lambda expressions by recursively converting and compiling them.
         /// </summary>
         /// <typeparam name="T">The delegate type</typeparam>
@@ -71,8 +80,8 @@ namespace YantraJS.Runtime
                 throw new InvalidOperationException("Failed to convert YExpression to LINQ Expression");
             }
             
-            // Compile with interpretation for AOT compatibility
-            return ((Expression<T>)linqExpr).Compile(preferInterpretation: true);
+            // Compile with user-specified preference
+            return ((Expression<T>)linqExpr).Compile(preferInterpretation: PreferInterpretation);
         }
     }
 }
